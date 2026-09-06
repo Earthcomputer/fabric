@@ -17,6 +17,9 @@
 package net.fabricmc.fabric.mixin.client.gametest.input;
 
 import com.mojang.blaze3d.platform.InputConstants;
+
+import net.fabricmc.fabric.impl.client.gametest.recording.TestRecordingImpl;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -28,12 +31,16 @@ import net.fabricmc.fabric.impl.client.gametest.TestInputImpl;
 @Mixin(InputConstants.class)
 public class InputConstantsMixin {
 	@Inject(method = "isKeyDown", at = @At("HEAD"), cancellable = true)
-	private static void useGameTestInputForKeyDown(int keyCode, CallbackInfoReturnable<Boolean> cir) {
-		cir.setReturnValue(TestInputImpl.isKeyDown(keyCode));
+	private static void useGameTestInputForKeyDown(int key, CallbackInfoReturnable<Boolean> cir) {
+		if (!TestRecordingImpl.isRecording()) {
+			cir.setReturnValue(TestInputImpl.isKeyDown(key));
+		}
 	}
 
 	@Inject(method = {"grabMouse", "releaseMouse"}, at = @At("HEAD"), cancellable = true)
 	private static void disableCursorGrabbing(CallbackInfo ci) {
-		ci.cancel();
+		if (!TestRecordingImpl.isRecording()) {
+			ci.cancel();
+		}
 	}
 }

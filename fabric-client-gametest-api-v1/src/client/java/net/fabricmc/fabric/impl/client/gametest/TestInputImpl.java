@@ -23,6 +23,12 @@ import java.util.function.Function;
 
 import com.google.common.base.Preconditions;
 import com.mojang.blaze3d.platform.InputConstants;
+
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestRecordingBuilder;
+
+import net.fabricmc.fabric.impl.client.gametest.recording.TestRecordingBuilderImpl;
+import net.fabricmc.fabric.impl.client.gametest.recording.TestRecordingImpl;
+
 import org.lwjgl.sdl.SDLKeyboard;
 
 import net.minecraft.client.KeyMapping;
@@ -41,8 +47,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.impl.client.gametest.threading.ThreadingImpl;
 import net.fabricmc.fabric.impl.client.gametest.util.WindowHooks;
 import net.fabricmc.fabric.mixin.client.gametest.input.KeyMappingAccessor;
-import net.fabricmc.fabric.mixin.client.gametest.input.KeyboardHandlerAccessor;
-import net.fabricmc.fabric.mixin.client.gametest.input.MouseHandlerAccessor;
 
 public final class TestInputImpl implements TestInput {
 	private static final Set<InputConstants.Key> KEYS_DOWN = new HashSet<>();
@@ -189,8 +193,8 @@ public final class TestInputImpl implements TestInput {
 
 	private static void pressOrReleaseKey(Minecraft client, InputConstants.Key key, int action) {
 		switch (key.getType()) {
-		case KEYBOARD -> ((KeyboardHandlerAccessor) client.keyboardHandler).invokeKeyPress(client.getWindow().handle(), action, new KeyEvent(key.getValue(), SDLKeyboard.SDL_GetKeyFromScancode(key.getValue(), (short) 0, false), 0));
-		case MOUSE -> ((MouseHandlerAccessor) client.mouseHandler).invokeOnButton(client.getWindow().handle(), new MouseButtonInfo(key.getValue(), 0), action);
+		case KEYBOARD -> client.keyboardHandler.keyPress(client.getWindow().handle(), action, new KeyEvent(key.getValue(), SDLKeyboard.SDL_GetKeyFromScancode(key.getValue(), (short) 0, false), 0));
+		case MOUSE -> client.mouseHandler.onButton(client.getWindow().handle(), new MouseButtonInfo(key.getValue(), 0), action);
 		}
 	}
 
@@ -309,7 +313,7 @@ public final class TestInputImpl implements TestInput {
 	public void typeChar(int codePoint) {
 		ThreadingImpl.checkOnGametestThread("typeChar");
 
-		context.runOnClient(client -> ((KeyboardHandlerAccessor) client.keyboardHandler).invokeCharTyped(client.getWindow().handle(), new CharacterEvent(codePoint)));
+		context.runOnClient(client -> client.keyboardHandler.charTyped(client.getWindow().handle(), new CharacterEvent(codePoint)));
 	}
 
 	@Override
@@ -318,7 +322,7 @@ public final class TestInputImpl implements TestInput {
 
 		context.runOnClient(client -> {
 			chars.chars().forEach(codePoint -> {
-				((KeyboardHandlerAccessor) client.keyboardHandler).invokeCharTyped(client.getWindow().handle(), new CharacterEvent(codePoint));
+				client.keyboardHandler.charTyped(client.getWindow().handle(), new CharacterEvent(codePoint));
 			});
 		});
 	}
@@ -334,14 +338,14 @@ public final class TestInputImpl implements TestInput {
 	public void scroll(double xAmount, double yAmount) {
 		ThreadingImpl.checkOnGametestThread("scroll");
 
-		context.runOnClient(client -> ((MouseHandlerAccessor) client.mouseHandler).invokeOnScroll(client.getWindow().handle(), xAmount, yAmount));
+		context.runOnClient(client -> client.mouseHandler.onScroll(client.getWindow().handle(), xAmount, yAmount));
 	}
 
 	@Override
 	public void setCursorPos(double x, double y) {
 		ThreadingImpl.checkOnGametestThread("setCursorPos");
 
-		context.runOnClient(client -> ((MouseHandlerAccessor) client.mouseHandler).invokeOnMove(
+		context.runOnClient(client -> client.mouseHandler.onMove(
 				client.getWindow().handle(), x, y, x - client.mouseHandler.xpos(), y - client.mouseHandler.ypos()
 		));
 	}
@@ -353,7 +357,7 @@ public final class TestInputImpl implements TestInput {
 		context.runOnClient(client -> {
 			double newX = client.mouseHandler.xpos() + deltaX;
 			double newY = client.mouseHandler.ypos() + deltaY;
-			((MouseHandlerAccessor) client.mouseHandler).invokeOnMove(client.getWindow().handle(), newX, newY, deltaX, deltaY);
+			client.mouseHandler.onMove(client.getWindow().handle(), newX, newY, deltaX, deltaY);
 		});
 	}
 
@@ -364,6 +368,36 @@ public final class TestInputImpl implements TestInput {
 		Preconditions.checkArgument(height > 0, "height must be positive");
 
 		context.runOnClient(client -> ((WindowHooks) (Object) client.getWindow()).fabric_resize(width, height));
+	}
+
+	@Override
+	public void playRecording(String fileName) {
+		ThreadingImpl.checkOnGametestThread("playRecording");
+		Preconditions.checkNotNull(fileName, "fileName");
+		playRecording(TestRecordingBuilder.create(fileName));
+	}
+
+	@Override
+	public void playRecording(TestRecordingBuilder recordingBuilder) {
+		ThreadingImpl.checkOnGametestThread("playRecording");
+		Preconditions.checkNotNull(recordingBuilder, "recordingBuilder");
+		Preconditions.checkState(TestRecordingImpl.currentRecording == null, "Cannot play recording while another is already playing");
+
+		TestRecordingImpl recording = ((TestRecordingBuilderImpl) recordingBuilder).build(context);
+		TestRecordingImpl.currentRecording = recording;
+
+		try {
+			recording.load();
+
+			if (TestRecordingImpl.isRecording()) {
+				recording.record();
+				recording.save();
+			} else {
+				recording.play();
+			}
+		} finally {
+			TestRecordingImpl.currentRecording = null;
+		}
 	}
 
 	private static InputConstants.Key getBoundKey(KeyMapping keyMapping, String action) {

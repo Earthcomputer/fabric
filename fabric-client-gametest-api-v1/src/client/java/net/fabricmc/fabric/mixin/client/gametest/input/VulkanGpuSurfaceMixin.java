@@ -20,6 +20,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.renderpearl.api.textures.GpuTextureView;
+import com.mojang.renderpearl.backend.vulkan.VulkanGpuSurface;
 import org.lwjgl.vulkan.VkImageBlit;
 import org.lwjgl.vulkan.VkOffset3D;
 import org.spongepowered.asm.mixin.Mixin;
@@ -29,19 +30,19 @@ import net.minecraft.client.Minecraft;
 
 import net.fabricmc.fabric.impl.client.gametest.util.WindowHooks;
 
-@Mixin(targets = "com.mojang.renderpearl.backend.vulkan.VulkanGpuSurface")
+@Mixin(VulkanGpuSurface.class)
 public class VulkanGpuSurfaceMixin {
 	@WrapOperation(method = "blitFromTexture", at = @At(value = "INVOKE", target = "Lorg/lwjgl/vulkan/VkImageBlit$Buffer;dstOffsets(Lorg/lwjgl/vulkan/VkOffset3D$Buffer;)Lorg/lwjgl/vulkan/VkImageBlit$Buffer;"))
-	private VkImageBlit.Buffer blitFrameBuffer(VkImageBlit.Buffer blitRegion, VkOffset3D.Buffer dstOffsets, Operation<VkImageBlit.Buffer> original, @Local(argsOnly = true) GpuTextureView gpuTextureView) {
-		if (gpuTextureView.texture() == Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTexture()) {
+	private VkImageBlit.Buffer blitFrameBuffer(VkImageBlit.Buffer blitRegion, VkOffset3D.Buffer value, Operation<VkImageBlit.Buffer> original, @Local(argsOnly = true) GpuTextureView textureView) {
+		if (textureView.texture() == Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTexture()) {
 			WindowHooks window = ((WindowHooks) (Object) Minecraft.getInstance().getWindow());
-			dstOffsets.position(0);
-			dstOffsets.x(0).y(window.fabric_getRealFramebufferHeight()).z(0);
-			dstOffsets.position(1);
-			dstOffsets.x(window.fabric_getRealFramebufferWidth()).y(0).z(1);
-			dstOffsets.position(0);
+			value.position(0);
+			value.x(0).y(window.fabric_getRealFramebufferHeight()).z(0);
+			value.position(1);
+			value.x(window.fabric_getRealFramebufferWidth()).y(0).z(1);
+			value.position(0);
 		}
 
-		return original.call(blitRegion, dstOffsets);
+		return original.call(blitRegion, value);
 	}
 }

@@ -117,16 +117,16 @@ public abstract class WindowMixin implements WindowHooks {
 	}
 
 	@Inject(method = "onResize", at = @At("HEAD"), cancellable = true)
-	private void cancelResize(int width, int height, CallbackInfo ci) {
-		realWidth = width;
-		realHeight = height;
+	private void cancelResize(int newWidth, int newHeight, CallbackInfo ci) {
+		realWidth = newWidth;
+		realHeight = newHeight;
 		ci.cancel();
 	}
 
 	@Inject(method = "onFramebufferResize", at = @At("HEAD"), cancellable = true)
-	private void cancelFramebufferResize(int width, int height, CallbackInfo ci) {
-		realFramebufferWidth = width;
-		realFramebufferHeight = height;
+	private void cancelFramebufferResize(int newWidth, int newHeight, CallbackInfo ci) {
+		realFramebufferWidth = newWidth;
+		realFramebufferHeight = newHeight;
 		ci.cancel();
 	}
 

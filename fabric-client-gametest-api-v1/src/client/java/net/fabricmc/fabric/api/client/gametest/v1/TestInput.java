@@ -19,6 +19,9 @@ package net.fabricmc.fabric.api.client.gametest.v1;
 import java.util.function.Function;
 
 import com.mojang.blaze3d.platform.InputConstants;
+
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestRecordingBuilder;
+
 import org.jetbrains.annotations.ApiStatus;
 
 import net.minecraft.client.KeyMapping;
@@ -405,4 +408,8 @@ public interface TestInput {
 	 * @param height The new window height
 	 */
 	void resizeWindow(int width, int height);
+
+	void playRecording(String fileName);
+
+	void playRecording(TestRecordingBuilder recordingBuilder);
 }
